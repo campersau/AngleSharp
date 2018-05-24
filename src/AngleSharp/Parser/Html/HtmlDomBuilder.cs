@@ -1,4 +1,4 @@
-﻿namespace AngleSharp.Parser.Html
+namespace AngleSharp.Parser.Html
 {
     using AngleSharp.Dom;
     using AngleSharp.Dom.Html;
@@ -18,7 +18,7 @@
     /// 8.2.5 Tree construction, on the following page:
     /// http://www.w3.org/html/wg/drafts/html/master/syntax.html
     /// </summary>
-    sealed class HtmlDomBuilder
+    sealed class HtmlDomBuilder : IDisposable
     {
         #region Fields
 
@@ -100,6 +100,11 @@
         #endregion
 
         #region Methods
+
+        public void Dispose()
+        {
+            _tokenizer.Dispose();
+        }
 
         /// <summary>
         /// Parses the given source asynchronously and creates the document.

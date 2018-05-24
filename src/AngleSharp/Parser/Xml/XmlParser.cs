@@ -1,4 +1,4 @@
-﻿namespace AngleSharp.Parser.Xml
+namespace AngleSharp.Parser.Xml
 {
     using AngleSharp.Dom.Xml;
     using AngleSharp.Extensions;
@@ -98,8 +98,10 @@
         public IXmlDocument Parse(String source)
         {
             var document = CreateDocument(source);
-            var parser = new XmlDomBuilder(document);
-            parser.Parse(_options);
+            using (var parser = new XmlDomBuilder(document))
+            {
+                parser.Parse(_options);
+            }
             return document;
         }
 
@@ -109,8 +111,10 @@
         public IXmlDocument Parse(Stream source)
         {
             var document = CreateDocument(source);
-            var parser = new XmlDomBuilder(document);
-            parser.Parse(_options);
+            using (var parser = new XmlDomBuilder(document))
+            {
+                parser.Parse(_options);
+            }
             return document;
         }
 
@@ -136,8 +140,10 @@
         public async Task<IXmlDocument> ParseAsync(String source, CancellationToken cancel)
         {
             var document = CreateDocument(source);
-            var parser = new XmlDomBuilder(document);
-            await parser.ParseAsync(_options, cancel).ConfigureAwait(false);
+            using (var parser = new XmlDomBuilder(document))
+            {
+                await parser.ParseAsync(_options, cancel).ConfigureAwait(false);
+            }
             return document;
         }
 
@@ -147,8 +153,10 @@
         public async Task<IXmlDocument> ParseAsync(Stream source, CancellationToken cancel)
         {
             var document = CreateDocument(source);
-            var parser = new XmlDomBuilder(document);
-            await parser.ParseAsync(_options, cancel).ConfigureAwait(false);
+            using (var parser = new XmlDomBuilder(document))
+            {
+                await parser.ParseAsync(_options, cancel).ConfigureAwait(false);
+            }
             return document;
         }
 

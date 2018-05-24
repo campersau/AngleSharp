@@ -1,4 +1,4 @@
-﻿namespace AngleSharp.Dom.Xml
+namespace AngleSharp.Dom.Xml
 {
     using AngleSharp.Dom.Events;
     using AngleSharp.Extensions;
@@ -50,11 +50,13 @@
         {
             var parserOptions = new XmlParserOptions { };
             var document = new XmlDocument(context, options.Source);
-            var parser = new XmlDomBuilder(document);
             document.Setup(options);
             context.NavigateTo(document);
             context.Fire(new HtmlParseEvent(document, completed: false));
-            await parser.ParseAsync(default(XmlParserOptions), cancelToken).ConfigureAwait(false);
+            using (var parser = new XmlDomBuilder(document))
+            {
+                await parser.ParseAsync(default(XmlParserOptions), cancelToken).ConfigureAwait(false);
+            }
             context.Fire(new HtmlParseEvent(document, completed: true));
             return document;
         }

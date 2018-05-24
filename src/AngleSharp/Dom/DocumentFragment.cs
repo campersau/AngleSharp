@@ -1,4 +1,4 @@
-﻿namespace AngleSharp.Dom
+namespace AngleSharp.Dom
 {
     using AngleSharp.Dom.Collections;
     using AngleSharp.Dom.Html;
@@ -29,22 +29,24 @@
         internal DocumentFragment(Element context, String html)
             : this(context.Owner)
         {
-            var source = new TextSource(html);
-            var document = new HtmlDocument(Owner.Context, source);
-            var parser = new HtmlDomBuilder(document);
-            var options = new HtmlParserOptions
+            using (var source = new TextSource(html))
+            using (var document = new HtmlDocument(Owner.Context, source))
+            using (var parser = new HtmlDomBuilder(document))
             {
-                IsEmbedded = false,
-                IsStrictMode = false,
-                IsScripting = Owner.Options.IsScripting()
-            };
-            var root = parser.ParseFragment(options, context).DocumentElement;
+                var options = new HtmlParserOptions
+                {
+                    IsEmbedded = false,
+                    IsStrictMode = false,
+                    IsScripting = Owner.Options.IsScripting()
+                };
+                var root = parser.ParseFragment(options, context).DocumentElement;
 
-            while (root.HasChildNodes)
-            {
-                var child = root.FirstChild;
-                root.RemoveChild(child);
-                this.PreInsert(child, null);
+                while (root.HasChildNodes)
+                {
+                    var child = root.FirstChild;
+                    root.RemoveChild(child);
+                    this.PreInsert(child, null);
+                }
             }
         }
 
