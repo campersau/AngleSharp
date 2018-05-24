@@ -29,25 +29,27 @@ namespace AngleSharp.Dom
         internal DocumentFragment(Element context, String html)
             : this(context.Owner)
         {
-            var source = new TextSource(html);
-            var document = new HtmlDocument(Owner.Context, source);
-            var parser = new HtmlDomBuilder(document);
-            var options = new HtmlParserOptions
+            using (var source = new TextSource(html))
+            using (var document = new HtmlDocument(Owner.Context, source))
+            using (var parser = new HtmlDomBuilder(document))
             {
-                IsEmbedded = false,
-                IsStrictMode = false,
-                IsScripting = Owner.Options.IsScripting()
-            };
-            var root = parser.ParseFragment(options, context).DocumentElement;
-
-            while (root.HasChildNodes)
-            {
-                var child = root.FirstChild;
-                root.RemoveChild(child);
-                if (child is Node)
+                var options = new HtmlParserOptions
                 {
-                    Owner.AdoptNode(child);
-                    InsertBefore((Node)child, null, false);
+                    IsEmbedded = false,
+                    IsStrictMode = false,
+                    IsScripting = Owner.Options.IsScripting()
+                };
+                var root = parser.ParseFragment(options, context).DocumentElement;
+
+                while (root.HasChildNodes)
+                {
+                    var child = root.FirstChild;
+                    root.RemoveChild(child);
+                    if (child is Node)
+                    {
+                        Owner.AdoptNode(child);
+                        InsertBefore((Node)child, null, false);
+                    }
                 }
             }
         }

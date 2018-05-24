@@ -1,4 +1,4 @@
-﻿namespace AngleSharp.Parser.Xml
+namespace AngleSharp.Parser.Xml
 {
     using AngleSharp.Dom;
     using AngleSharp.Dom.Xml;
@@ -15,7 +15,7 @@
     /// specification for XML:
     /// http://www.w3.org/TR/REC-xml/
     /// </summary>
-    sealed class XmlDomBuilder
+    sealed class XmlDomBuilder : IDisposable
     {
         #region Fields
 
@@ -71,6 +71,11 @@
         #endregion
 
         #region Methods
+
+        public void Dispose()
+        {
+            _tokenizer.Dispose();
+        }
 
         /// <summary>
         /// Parses the given source asynchronously and creates the document.

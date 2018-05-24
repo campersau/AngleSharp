@@ -1,4 +1,4 @@
-﻿namespace AngleSharp.Dom.Svg
+namespace AngleSharp.Dom.Svg
 {
     using AngleSharp.Dom.Events;
     using AngleSharp.Extensions;
@@ -57,11 +57,13 @@
             var parserOptions = new XmlParserOptions { };
             var document = new SvgDocument(context, options.Source);
             var factory = context.Configuration.GetFactory<IElementFactory<SvgElement>>();
-            var parser = new XmlDomBuilder(document, factory.Create);
             document.Setup(options);
             context.NavigateTo(document);
             context.Fire(new HtmlParseEvent(document, completed: false));
-            await parser.ParseAsync(parserOptions, cancelToken).ConfigureAwait(false);
+            using (var parser = new XmlDomBuilder(document, factory.Create))
+            {
+                await parser.ParseAsync(parserOptions, cancelToken).ConfigureAwait(false);
+            }
             context.Fire(new HtmlParseEvent(document, completed: true));
             return document;
         }

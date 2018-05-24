@@ -1,4 +1,4 @@
-﻿namespace AngleSharp.Dom.Html
+namespace AngleSharp.Dom.Html
 {
     using AngleSharp.Dom.Events;
     using AngleSharp.Extensions;
@@ -53,11 +53,13 @@
             var scripting = context.Configuration.IsScripting();
             var parserOptions = new HtmlParserOptions { IsScripting = scripting };
             var document = new HtmlDocument(context, options.Source);
-            var parser = new HtmlDomBuilder(document);
             document.Setup(options);
             context.NavigateTo(document);
             context.Fire(new HtmlParseEvent(document, completed: false));
-            await parser.ParseAsync(parserOptions, cancelToken).ConfigureAwait(false);
+            using (var parser = new HtmlDomBuilder(document))
+            {
+                await parser.ParseAsync(parserOptions, cancelToken).ConfigureAwait(false);
+            }
             context.Fire(new HtmlParseEvent(document, completed: true));
             return document;
         }

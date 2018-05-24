@@ -1,4 +1,4 @@
-﻿namespace AngleSharp.Parser.Css
+namespace AngleSharp.Parser.Css
 {
     using AngleSharp.Dom;
     using AngleSharp.Dom.Css;
@@ -146,22 +146,21 @@
         /// </summary>
         public ISelector ParseSelector(String selectorText)
         {
-            var tokenizer = CreateTokenizer(selectorText);
-            var token = tokenizer.Get();
-            var creator = GetSelectorCreator();
-
-            while (token.Type != CssTokenType.EndOfFile)
+            using (var tokenizer = CreateTokenizer(selectorText))
             {
-                creator.Apply(token);
-                token = tokenizer.Get();
-            }
-            
-            // tokenizer should be disposed
-            tokenizer.Dispose();
+                var token = tokenizer.Get();
+                var creator = GetSelectorCreator();
 
-            var valid = creator.IsValid;
-            var result = creator.ToPool();
-            return valid || _options.IsToleratingInvalidSelectors ? result : null;
+                while (token.Type != CssTokenType.EndOfFile)
+                {
+                    creator.Apply(token);
+                    token = tokenizer.Get();
+                }
+
+                var valid = creator.IsValid;
+                var result = creator.ToPool();
+                return valid || _options.IsToleratingInvalidSelectors ? result : null;
+            }
         }
 
         /// <summary>
@@ -207,7 +206,7 @@
             var end = builder.CreateRules(sheet);
             var range = new TextRange(start, end);
             sheet.SourceCode = new TextView(range, source);
-            
+
             foreach (var rule in sheet.Rules)
             {
                 if (rule.Type == CssRuleType.Charset)
@@ -231,11 +230,13 @@
 
         internal CssValue ParseValue(String valueText)
         {
-            var tokenizer = CreateTokenizer(valueText);
-            var token = default(CssToken);
-            var builder = new CssBuilder(tokenizer, this);
-            var value = builder.CreateValue(ref token);
-            return token.Type == CssTokenType.EndOfFile ? value : null;
+            using (var tokenizer = CreateTokenizer(valueText))
+            {
+                var token = default(CssToken);
+                var builder = new CssBuilder(tokenizer, this);
+                var value = builder.CreateValue(ref token);
+                return token.Type == CssTokenType.EndOfFile ? value : null;
+            }
         }
 
         internal CssRule ParseRule(String ruleText)
@@ -275,9 +276,11 @@
 
         internal void AppendDeclarations(CssStyleDeclaration style, String declarations)
         {
-            var tokenizer = CreateTokenizer(declarations);
-            var builder = new CssBuilder(tokenizer, this);
-            builder.FillDeclarations(style);
+            using (var tokenizer = CreateTokenizer(declarations))
+            {
+                var builder = new CssBuilder(tokenizer, this);
+                builder.FillDeclarations(style);
+            }
         }
 
         #endregion
@@ -286,20 +289,24 @@
 
         T Parse<T>(String source, Func<CssBuilder, CssToken, T> create)
         {
-            var tokenizer = CreateTokenizer(source);
-            var token = tokenizer.Get();
-            var builder = new CssBuilder(tokenizer, this);
-            var rule = create(builder, token);
-            return tokenizer.Get().Type == CssTokenType.EndOfFile ? rule : default(T);
+            using (var tokenizer = CreateTokenizer(source))
+            {
+                var token = tokenizer.Get();
+                var builder = new CssBuilder(tokenizer, this);
+                var rule = create(builder, token);
+                return tokenizer.Get().Type == CssTokenType.EndOfFile ? rule : default(T);
+            }
         }
 
         T Parse<T>(String source, Func<CssBuilder, CssToken, Tuple<T, CssToken>> create)
         {
-            var tokenizer = CreateTokenizer(source);
-            var token = tokenizer.Get();
-            var builder = new CssBuilder(tokenizer, this);
-            var pair = create(builder, token);
-            return pair.Item2.Type == CssTokenType.EndOfFile ? pair.Item1 : default(T);
+            using (var tokenizer = CreateTokenizer(source))
+            {
+                var token = tokenizer.Get();
+                var builder = new CssBuilder(tokenizer, this);
+                var pair = create(builder, token);
+                return pair.Item2.Type == CssTokenType.EndOfFile ? pair.Item1 : default(T);
+            }
         }
 
         static CssTokenizer CreateTokenizer(String sourceCode)

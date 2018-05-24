@@ -1,4 +1,4 @@
-﻿namespace AngleSharp.Parser.Html
+namespace AngleSharp.Parser.Html
 {
     using AngleSharp.Dom;
     using AngleSharp.Dom.Html;
@@ -100,8 +100,10 @@
         public IHtmlDocument Parse(String source)
         {
             var document = CreateDocument(source);
-            var parser = new HtmlDomBuilder(document);
-            return parser.Parse(_options);
+            using (var parser = new HtmlDomBuilder(document))
+            {
+                return parser.Parse(_options);
+            }
         }
 
         /// <summary>
@@ -110,23 +112,24 @@
         public INodeList ParseFragment(String source, IElement context)
         {
             var document = CreateDocument(source);
-            var parser = new HtmlDomBuilder(document);
-
-            if (context != null)
+            using (var parser = new HtmlDomBuilder(document))
             {
-                var element = context as Element;
-
-                if (element == null)
+                if (context != null)
                 {
-                    var configuration = document.Options;
-                    var factory = configuration.GetFactory<IElementFactory<HtmlElement>>();
-                    element = factory.Create(document, context.LocalName, context.Prefix);
+                    var element = context as Element;
+
+                    if (element == null)
+                    {
+                        var configuration = document.Options;
+                        var factory = configuration.GetFactory<IElementFactory<HtmlElement>>();
+                        element = factory.Create(document, context.LocalName, context.Prefix);
+                    }
+
+                    return parser.ParseFragment(_options, element).DocumentElement.ChildNodes;
                 }
 
-                return parser.ParseFragment(_options, element).DocumentElement.ChildNodes;
+                return parser.Parse(_options).ChildNodes;
             }
-
-            return parser.Parse(_options).ChildNodes;
         }
 
         /// <summary>
@@ -135,8 +138,10 @@
         public IHtmlDocument Parse(Stream source)
         {
             var document = CreateDocument(source);
-            var parser = new HtmlDomBuilder(document);
-            return parser.Parse(_options);
+            using (var parser = new HtmlDomBuilder(document))
+            {
+                return parser.Parse(_options);
+            }
         }
 
         /// <summary>
@@ -161,8 +166,10 @@
         public async Task<IHtmlDocument> ParseAsync(String source, CancellationToken cancel)
         {
             var document = CreateDocument(source);
-            var parser = new HtmlDomBuilder(document);
-            return await parser.ParseAsync(_options, cancel).ConfigureAwait(false);
+            using (var parser = new HtmlDomBuilder(document))
+            {
+                return await parser.ParseAsync(_options, cancel).ConfigureAwait(false);
+            }
         }
 
         /// <summary>
@@ -171,8 +178,10 @@
         public async Task<IHtmlDocument> ParseAsync(Stream source, CancellationToken cancel)
         {
             var document = CreateDocument(source);
-            var parser = new HtmlDomBuilder(document);
-            return await parser.ParseAsync(_options, cancel).ConfigureAwait(false);
+            using (var parser = new HtmlDomBuilder(document))
+            {
+                return await parser.ParseAsync(_options, cancel).ConfigureAwait(false);
+            }
         }
 
         #endregion
