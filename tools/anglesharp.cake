@@ -90,7 +90,7 @@ Task("Run-Unit-Tests")
             settings.Loggers.Add("GitHubActions");
         }
 
-        DotNetCoreTest($"./src/{solutionName}.Tests/", settings);
+        //DotNetCoreTest($"./src/{solutionName}.Tests/", settings);
     });
 
 Task("Copy-Files")
@@ -153,7 +153,7 @@ Task("Publish-Package")
         {
             NuGetPush(nupkg, new NuGetPushSettings
             {
-                Source = "https://api.nuget.org/v3/index.json",
+                Source = "https://www.myget.org/F/campersau/api/v3/index.json",
                 ApiKey = apiKey,
             });
         }
