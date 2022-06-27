@@ -1,4 +1,4 @@
-﻿namespace AngleSharp.Extensions
+namespace AngleSharp.Extensions
 {
     using AngleSharp.Dom;
     using AngleSharp.Dom.Collections;
@@ -129,10 +129,23 @@
                 var next = stack.Pop();
                 yield return next;
 
-                var length = next.ChildNodes.Length;
-                while (length > 0)
+                var childNodes = next.ChildNodes;
+
+                if (childNodes is NodeList nodeList)
                 {
-                    stack.Push(next.ChildNodes[--length]);
+                    var length = nodeList.Length;
+                    while (length > 0)
+                    {
+                        stack.Push(nodeList[--length]);
+                    }
+                }
+                else
+                {
+                    var length = childNodes.Length;
+                    while (length > 0)
+                    {
+                        stack.Push(childNodes[--length]);
+                    }
                 }
             }
         }

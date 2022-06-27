@@ -1,4 +1,4 @@
-﻿namespace AngleSharp.Extensions
+namespace AngleSharp.Extensions
 {
     using System;
     using System.Collections.Generic;

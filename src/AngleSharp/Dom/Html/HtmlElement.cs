@@ -417,7 +417,7 @@ namespace AngleSharp.Dom.Html
         public ISettableTokenList DropZone
         {
             get
-            { 
+            {
                 if (_dropZone == null)
                 {
                     _dropZone = new SettableTokenList(this.GetOwnAttribute(AttributeNames.DropZone));
@@ -518,46 +518,10 @@ namespace AngleSharp.Dom.Html
         {
             get
             {
-                bool? hidden = null;
-                if (Owner == null)
-                {
-                    hidden = true;
-                }
-                if (!hidden.HasValue)
-                {
-                    var css = this.ComputeCurrentStyle();
-                    if (!String.IsNullOrEmpty(css?.Display))
-                    {
-                        hidden = css.Display == "none";
-                    }
-                }
-                if (!hidden.HasValue)
-                {
-                    hidden = IsHidden;
-                }
-                if (hidden.Value)
-                {
-                    return TextContent;
-                }
-
                 var sb = Pool.NewStringBuilder();
-                var requiredLineBreakCounts = new Dictionary<Int32, Int32>();
-
-                InnerTextCollection(this, sb, requiredLineBreakCounts, ParentElement?.ComputeCurrentStyle());
-
-                // Remove any runs of consecutive required line break count items at the start or end of results.
-                requiredLineBreakCounts.Remove(0);
-                requiredLineBreakCounts.Remove(sb.Length);
-
-                var offset = 0;
-                foreach (var keyval in requiredLineBreakCounts.OrderBy(kv => kv.Key)) // SortedDictionary would be nicer
-                {
-                    var index = keyval.Key + offset;
-                    sb.Insert(index, new String(Symbols.LineFeed, keyval.Value));
-                    offset += keyval.Value;
-                }
-
-                return sb.ToPool();
+                var result = new ElementInnerTextCollector(sb).RunOn(this);
+                sb.ToPool();
+                return result;
             }
             set
             {
@@ -605,120 +569,396 @@ namespace AngleSharp.Dom.Html
             }
         }
 
-        private static void InnerTextCollection(INode node, StringBuilder sb, Dictionary<Int32, Int32> requiredLineBreakCounts, ICssStyleDeclaration parentStyle)
+        private class ElementInnerTextStringBuilder
         {
-            if (!HasCssBox(node))
+            private readonly StringBuilder _stringBuilder;
+            private int _requiredLineBreakCount;
+            private char _lastWhiteSpaceChar;
+
+            public ElementInnerTextStringBuilder(StringBuilder stringBuilder)
             {
-                return;
+                _stringBuilder = stringBuilder;
             }
 
-            var elementCss = (node as IElement)?.ComputeCurrentStyle();
-
-            bool? elementHidden = null;
-            if (elementCss != null)
+            public void EmitNewline()
             {
-                if (!String.IsNullOrEmpty(elementCss.Display))
+                FlushRequiredLineBreak();
+                _stringBuilder.Append(Symbols.LineFeed);
+                _lastWhiteSpaceChar = Symbols.LineFeed;
+            }
+
+            public void EmitRequiredLineBreak(int count)
+            {
+                if (count == 0)
                 {
-                    elementHidden = elementCss.Display == "none";
+                    return;
                 }
-                if (!String.IsNullOrEmpty(elementCss.Visibility) && elementHidden != true)
+                if (_stringBuilder.Length == 0)
                 {
-                    elementHidden = elementCss.Visibility != "visible";
+                    return;
                 }
-            }
-            if (!elementHidden.HasValue)
-            {
-                elementHidden = (node as IHtmlElement)?.IsHidden ?? false;
-            }
-            if (elementHidden.Value)
-            {
-                return;
+                _requiredLineBreakCount = Math.Max(_requiredLineBreakCount, count);
             }
 
-            var startIndex = sb.Length;
-
-            foreach (var child in node.ChildNodes)
+            public void EmitTab()
             {
-                InnerTextCollection(child, sb, requiredLineBreakCounts, elementCss);
+                FlushRequiredLineBreak();
+                _stringBuilder.Append(Symbols.Tab);
+                _lastWhiteSpaceChar = Symbols.Tab;
             }
 
-            if (node is IText)
+            public void EmitText(String text, string whiteSpace = null, string textTransform = null)
             {
-                var textElement = (IText)node;
-
-                ProcessText(textElement.Data, sb, parentStyle);
-            }
-            else if (node is IHtmlBreakRowElement)
-            {
-                sb.Append(Symbols.LineFeed);
-            }
-            else if ((node is IHtmlTableCellElement && String.IsNullOrEmpty(elementCss.Display)) || elementCss.Display == "table-cell")
-            {
-                var nextSibling = node.NextSibling as IElement;
-                if (nextSibling != null)
+                if (text.Length == 0)
                 {
-                    var nextSiblingCss = nextSibling.ComputeCurrentStyle();
-                    if (nextSibling is IHtmlTableCellElement && String.IsNullOrEmpty(nextSiblingCss.Display) || nextSiblingCss.Display == "table-cell")
+                    return;
+                }
+
+                var lastWhiteSpaceChar = _lastWhiteSpaceChar;
+
+                for (var i = 0; i < text.Length; i++)
+                {
+                    var c = text[i];
+
+                    if (Char.IsWhiteSpace(c) && c != Symbols.NoBreakSpace)
                     {
-                        sb.Append(Symbols.Tab);
+                        // https://drafts.csswg.org/css-text/#white-space-property
+                        switch (whiteSpace)
+                        {
+                            case "pre":
+                            case "pre-wrap":
+                            case "break-spaces":
+                                break;
+                            case "pre-line":
+                                if (c == Symbols.Space || c == Symbols.Tab)
+                                {
+                                    lastWhiteSpaceChar = Symbols.Space;
+                                    continue;
+                                }
+                                break;
+                            case "nowrap":
+                            case "normal":
+                            default:
+                                lastWhiteSpaceChar = Symbols.Space;
+                                continue;
+                        }
+                    }
+                    else
+                    {
+                        // https://drafts.csswg.org/css-text/#propdef-text-transform
+                        switch (textTransform)
+                        {
+                            case "uppercase":
+                                c = Char.ToUpperInvariant(c);
+                                break;
+                            case "lowercase":
+                                c = Char.ToLowerInvariant(c);
+                                break;
+                            case "capitalize":
+                                if (i == 0 || Char.IsWhiteSpace(text[i - 1]))
+                                {
+                                    c = Char.ToUpperInvariant(c);
+                                }
+                                break;
+                            case "none":
+                            default:
+                                break;
+                        }
+
+                        if (lastWhiteSpaceChar != '\0')
+                        {
+                            FlushRequiredLineBreak();
+                            if (_stringBuilder.Length > 0 && (_lastWhiteSpaceChar == '\0' || _lastWhiteSpaceChar == Symbols.Space))
+                            {
+                                _stringBuilder.Append(lastWhiteSpaceChar);
+                            }
+                            lastWhiteSpaceChar = '\0';
+                        }
+                        _lastWhiteSpaceChar = '\0';
+                    }
+
+                    FlushRequiredLineBreak();
+                    _stringBuilder.Append(c);
+                }
+
+                switch (whiteSpace)
+                {
+                    case "pre":
+                    case "pre-wrap":
+                    case "break-spaces":
+                    case "pre-line":
+                        _lastWhiteSpaceChar = '\0';
+                        break;
+                    default:
+                        if (_stringBuilder.Length >= 0)
+                        {
+                            _lastWhiteSpaceChar = lastWhiteSpaceChar;
+                        }
+                        break;
+                }
+            }
+
+            private void FlushRequiredLineBreak()
+            {
+                if (_requiredLineBreakCount == 0)
+                {
+                    return;
+                }
+                _stringBuilder.Append(Symbols.LineFeed, _requiredLineBreakCount);
+                _requiredLineBreakCount = 0;
+                _lastWhiteSpaceChar = Symbols.LineFeed;
+            }
+
+            public string Finish()
+            {
+                return _stringBuilder.ToString();
+            }
+        }
+
+        private class ElementInnerTextCollector
+        {
+            private readonly ElementInnerTextStringBuilder _result;
+
+            public ElementInnerTextCollector(StringBuilder stringBuilder)
+            {
+                _result = new ElementInnerTextStringBuilder(stringBuilder);
+            }
+
+            public string RunOn(IHtmlElement element)
+            {
+                // 1. If this element is locked or a part of a locked subtree, then it is
+                // hidden from view (and also possibly not laid out) and innerText should be
+                // empty.
+
+                // 2. If this element is not being rendered, or if the user agent is a non-CSS
+                // user agent, then return the same value as the textContent IDL attribute on
+                // this element.
+                if (element.Owner == null)
+                {
+                    return element.TextContent;
+                }
+                var style = element.ComputeCurrentStyle();
+                if (!IsBeingRendered(element, style))
+                {
+                    return element.TextContent;
+                }
+
+                // 3. Let results be a new empty list.
+                // 4. For each child node node of this element:
+                //   1. Let current be the list resulting in running the inner text collection
+                //      steps with node. Each item in results will either be a JavaScript
+                //      string or a positive integer (a required line break count).
+                //   2. For each item item in current, append item to results.
+                if (element is IHtmlSelectElement selectElement)
+                {
+                    ProcessSelectElement(selectElement);
+                }
+                else if (element is IHtmlOptionElement optionElement)
+                {
+                    ProcessOptionElement(optionElement);
+                }
+                else
+                {
+                    ProcessChildren(element, style);
+                }
+
+                return _result.Finish();
+            }
+
+            public void ProcessChildren(INode node, ICssStyleDeclaration style)
+            {
+                foreach (var child in node.ChildNodes)
+                {
+                    ProcessNode(child, style);
+                }
+            }
+
+            public void ProcessChildrenWithRequiredLineBreaks(INode node, int requiredLineBreakCount, ICssStyleDeclaration style)
+            {
+                _result.EmitRequiredLineBreak(requiredLineBreakCount);
+                ProcessChildren(node, style);
+                _result.EmitRequiredLineBreak(requiredLineBreakCount);
+            }
+
+            public void ProcessNode(INode node, ICssStyleDeclaration parentCss)
+            {
+                // 1. Let items be the result of running the inner text collection steps with
+                // each child node of node in tree order, and then concatenating the results
+                // to a single list.
+
+                // 2. If the node is display locked, then we should not process it or its
+                // children, since they are not visible or accessible via innerText.
+
+
+                // 3. If node's computed value of 'visibility' is not 'visible', then return
+                // items.
+
+                // 4. If node is not being rendered, then return items. For the purpose of
+                // this step, the following elements must act as described if the computed
+                // value of the 'display' property is not 'none':
+                var style = (node as IElement)?.ComputeCurrentStyle();
+                if (!IsBeingRendered(node, style))
+                {
+                    // ProcessChildren(node, style);
+                    return;
+                }
+
+                // * select elements have an associated non-replaced inline CSS box whose
+                //   child boxes include only those of optgroup and option element child
+                //   nodes;
+                // * optgroup elements have an associated non-replaced block-level CSS box
+                //   whose child boxes include only those of option element child nodes; and
+                // * option element have an associated non-replaced block-level CSS box whose
+                //   child boxes are as normal for non-replaced block-level CSS boxes.
+                if (node is IHtmlSelectElement selectElement)
+                {
+                    ProcessSelectElement(selectElement);
+                    return;
+                }
+                if (node is IHtmlOptionElement optionElement)
+                {
+                    ProcessOptionElement(optionElement);
+                    return;
+                }
+
+                // 5. If node is a Text node, then for each CSS text box produced by node.
+                if (node is IText text)
+                {
+                    ProcessTextNode(text, parentCss);
+                    return;
+                }
+
+                // 6. If node is a br element, then append a string containing a single U+000A
+                // LINE FEED (LF) character to items.
+                if (node is IHtmlBreakRowElement)
+                {
+                    ProcessChildren(node, style);
+                    _result.EmitNewline();
+                    return;
+                }
+
+                // 7. If node's computed value of 'display' is 'table-cell', and node's CSS
+                // box is not the last 'table-cell' box of its enclosing 'table-row' box, then
+                // append a string containing a single U+0009 CHARACTER TABULATION (tab)
+                // character to items.
+                if ((node is IHtmlTableCellElement && String.IsNullOrEmpty(style?.Display)) || style?.Display == "table-cell")
+                {
+                    ProcessChildren(node, style);
+                    if (((IElement)node).NextElementSibling != null)
+                    {
+                        _result.EmitTab();
+                    }
+                    return;
+                }
+
+                // 8. If node's computed value of 'display' is 'table-row', and node's CSS box
+                // is not the last 'table-row' box of the nearest ancestor 'table' box, then
+                // append a string containing a single U+000A LINE FEED (LF) character to
+                // items.
+                if ((node is IHtmlTableRowElement && String.IsNullOrEmpty(style?.Display)) || style?.Display == "table-row")
+                {
+                    ProcessChildren(node, style);
+                    if (((IElement)node).NextElementSibling != null)
+                    {
+                        _result.EmitNewline();
+                    }
+                    return;
+                }
+
+                // 9. If node is a p element, then append 2 (a required line break count) at
+                // the beginning and end of items.
+                if (node is IHtmlParagraphElement)
+                {
+                    ProcessChildrenWithRequiredLineBreaks(node, 2, style);
+                    return;
+                }
+
+                // 10. If node's used value of 'display' is block-level or 'table-caption',
+                // then append 1 (a required line break count) at the beginning and end of
+                // items.
+                if (String.IsNullOrEmpty(style?.Display) ? IsBlockLevel(node) : IsBlockLevelDisplay(style?.Display))
+                {
+                    ProcessChildrenWithRequiredLineBreaks(node, 1, style);
+                    return;
+                }
+
+                ProcessChildren(node, style);
+            }
+
+            public void ProcessOptionElement(IHtmlOptionElement element)
+            {
+                _result.EmitRequiredLineBreak(1);
+                _result.EmitText(element.Text);
+                _result.EmitRequiredLineBreak(1);
+            }
+
+            public void ProcessSelectElement(IHtmlSelectElement element)
+            {
+                foreach (var child in element.ChildNodes)
+                {
+                    if (child is IHtmlOptionElement optionElement)
+                    {
+                        ProcessOptionElement(optionElement);
+                        continue;
+                    }
+
+                    if (child is IHtmlOptionsGroupElement optionsGroupElement)
+                    {
+                        _result.EmitRequiredLineBreak(1);
+                        foreach (var optionGroupChild in child.ChildNodes)
+                        {
+                            if (optionGroupChild is IHtmlOptionElement optionsGroupOptionElement)
+                            {
+                                ProcessOptionElement(optionsGroupOptionElement);
+                            }
+                        }
+                        _result.EmitRequiredLineBreak(1);
                     }
                 }
             }
-            else if ((node is IHtmlTableRowElement && String.IsNullOrEmpty(elementCss.Display)) || elementCss.Display == "table-row")
+
+            public void ProcessTextNode(IText text, ICssStyleDeclaration style)
             {
-                var nextSibling = node.NextSibling as IElement;
-                if (nextSibling != null)
+                var whiteSpace = style?.WhiteSpace;
+                if (String.IsNullOrEmpty(whiteSpace) && text.Parent is IHtmlPreElement)
                 {
-                    var nextSiblingCss = nextSibling.ComputeCurrentStyle();
-                    if (nextSibling is IHtmlTableRowElement && String.IsNullOrEmpty(nextSiblingCss.Display) || nextSiblingCss.Display == "table-row")
-                    {
-                        sb.Append(Symbols.LineFeed);
-                    }
+                    whiteSpace = "pre";
                 }
-            }
-            else if (node is IHtmlParagraphElement)
-            {
-                var startIndexCount = 0;
-                requiredLineBreakCounts.TryGetValue(startIndex, out startIndexCount);
-                if (startIndexCount < 2)
-                {
-                    requiredLineBreakCounts[startIndex] = 2;
-                }
-                var endIndexCount = 0;
-                requiredLineBreakCounts.TryGetValue(sb.Length, out endIndexCount);
-                if (endIndexCount < 2)
-                {
-                    requiredLineBreakCounts[sb.Length] = 2;
-                }
+                _result.EmitText(text.Data, whiteSpace, style?.TextTransform);
             }
 
-            bool? isBlockLevel = null;
-            if (elementCss != null)
+            private static Boolean IsBeingRendered(INode node, ICssStyleDeclaration style)
             {
-                if (IsBlockLevelDisplay(elementCss.Display))
+                if (!HasCssBox(node))
                 {
-                    isBlockLevel = true;
+                    return false;
                 }
-            }
-            if (!isBlockLevel.HasValue)
-            {
-                isBlockLevel = IsBlockLevel(node);
-            }
-            if (isBlockLevel.Value)
-            {
-                var startIndexCount = 0;
-                requiredLineBreakCounts.TryGetValue(startIndex, out startIndexCount);
-                if (startIndexCount < 1)
+
+                if (style != null)
                 {
-                    requiredLineBreakCounts[startIndex] = 1;
+                    bool? hidden = null;
+                    if (!String.IsNullOrEmpty(style.Display))
+                    {
+                        hidden = style.Display == "none";
+                    }
+                    if (!String.IsNullOrEmpty(style.Visibility) && hidden != true && style.Visibility != "visible")
+                    {
+                        hidden = true;
+                    }
+                    if (hidden.HasValue)
+                    {
+                        return !hidden.Value;
+                    }
                 }
-                var endIndexCount = 0;
-                requiredLineBreakCounts.TryGetValue(sb.Length, out endIndexCount);
-                if (endIndexCount < 1)
+
+                if ((node as IHtmlElement)?.IsHidden == true)
                 {
-                    requiredLineBreakCounts[sb.Length] = 1;
+                    return false;
                 }
+
+                return true;
             }
+
         }
 
         private static Boolean HasCssBox(INode node)
@@ -801,7 +1041,7 @@ namespace AngleSharp.Dom.Html
                 case "NAV":
                 case "NOSCRIPT":
                 case "OL":
-                case "OPTION": 
+                case "OPTION":
                 case "OUTPUT":
                 case "P":
                 case "PRE":
@@ -813,96 +1053,6 @@ namespace AngleSharp.Dom.Html
                     return true;
                 default:
                     return false;
-            }
-        }
-
-        private static void ProcessText(String text, StringBuilder sb, ICssStyleDeclaration style)
-        {
-            var startIndex = sb.Length;
-            var whiteSpace = style?.WhiteSpace;
-            var textTransform = style?.TextTransform;
-
-            var isWhiteSpace = startIndex > 0 ? Char.IsWhiteSpace(sb[startIndex - 1]) && sb[startIndex - 1] != Symbols.NoBreakSpace : true;
-            for (var i = 0; i < text.Length; i++)
-            {
-                var c = text[i];
-
-                if (Char.IsWhiteSpace(c) && c != Symbols.NoBreakSpace)
-                {
-                    // https://drafts.csswg.org/css-text/#white-space-property
-                    switch (whiteSpace)
-                    {
-                        case "pre":
-                        case "pre-wrap":
-                            break;
-                        case "pre-line":
-                            if (c == Symbols.Space || c == Symbols.Tab)
-                            {
-                                if (!isWhiteSpace)
-                                {
-                                    c = Symbols.Space;
-                                }
-                                else
-                                {
-                                    continue;
-                                }
-                            }
-                            break;
-                        case "nowrap":
-                        case "normal":
-                        default:
-                            if (!isWhiteSpace)
-                            {
-                                c = Symbols.Space;
-                            }
-                            else
-                            {
-                                continue;
-                            }
-                            break;
-                    }
-
-                    isWhiteSpace = true;
-                }
-                else
-                {
-                    // https://drafts.csswg.org/css-text/#propdef-text-transform
-                    switch (textTransform)
-                    {
-                        case "uppercase":
-                            c = Char.ToUpperInvariant(c);
-                            break;
-                        case "lowercase":
-                            c = Char.ToLowerInvariant(c);
-                            break;
-                        case "capitalize":
-                            if (isWhiteSpace)
-                            {
-                                c = Char.ToUpperInvariant(c);
-                            }
-                            break;
-                        case "none":
-                        default:
-                            break;
-                    }
-
-                    isWhiteSpace = false;
-                }
-
-                sb.Append(c);
-            }
-
-            if (isWhiteSpace) // ended with whitespace
-            {
-                for (var offset = sb.Length - 1; offset >= startIndex; offset--)
-                {
-                    var c = sb[offset];
-                    if (!Char.IsWhiteSpace(c) || c == Symbols.NoBreakSpace)
-                    {
-                        sb.Remove(offset + 1, sb.Length - 1 - offset);
-                        break;
-                    }
-                }
             }
         }
 
@@ -982,7 +1132,7 @@ namespace AngleSharp.Dom.Html
             {
                 parent = parent.ParentElement;
             }
-            
+
             if (parent == null)
             {
                 var formid = this.GetOwnAttribute(AttributeNames.Form);

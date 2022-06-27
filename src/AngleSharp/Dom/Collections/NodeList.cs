@@ -1,9 +1,10 @@
-﻿namespace AngleSharp.Dom.Collections
+namespace AngleSharp.Dom.Collections
 {
     using System;
     using System.Collections;
     using System.Collections.Generic;
     using System.IO;
+    using System.Runtime.CompilerServices;
 
     /// <summary>
     /// Represents a list of Node instances or nodes.
@@ -34,7 +35,9 @@
 
         public Node this[Int32 index]
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get { return _entries[index]; }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set { _entries[index] = value; }
         }
 
@@ -49,6 +52,7 @@
 
         public Int32 Length
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get { return _entries.Count; }
         }
 

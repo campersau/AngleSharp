@@ -1,4 +1,4 @@
-﻿namespace AngleSharp.Dom.Css
+namespace AngleSharp.Dom.Css
 {
     using AngleSharp.Css;
     using AngleSharp.Extensions;
@@ -127,11 +127,12 @@
 
         Boolean MatchCascade(Int32 pos, IElement element)
         {
-            var newElements = _selectors[pos].Transform(element);
+            var combinatorSelector = _selectors[pos];
+            var newElements = combinatorSelector.Transform(element);
 
             foreach (var newElement in newElements)
             {
-                if (_selectors[pos].Selector.Match(newElement))
+                if (combinatorSelector.Selector.Match(newElement))
                 {
                     if (pos == 0 || MatchCascade(pos - 1, newElement))
                     {

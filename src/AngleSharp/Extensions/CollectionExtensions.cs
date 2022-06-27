@@ -1,4 +1,4 @@
-﻿namespace AngleSharp.Extensions
+namespace AngleSharp.Extensions
 {
     using AngleSharp.Dom;
     using AngleSharp.Html;
@@ -81,13 +81,28 @@
         /// <param name="children">The nodelist to investigate.</param>
         /// <param name="id">The id to find.</param>
         /// <returns>The element or null.</returns>
-        public static IElement GetElementById(this INodeList children, String id)
+        public static IElement GetElementById(this INodeList children, String id) => GetElementById<INodeList>(children, id);
+
+        public static IElement GetElementById<T>(this T children, String id) where T : INodeList
         {
             for (var i = 0; i < children.Length; i++)
             {
-                var element = children[i] as IElement;
+                var child = children[i];
 
-                if (element != null)
+                if (child is Element ele)
+                {
+                    if (ele.Id.Is(id))
+                    {
+                        return ele;
+                    }
+                    var element = ele.ChildNodes.GetElementById(id);
+
+                    if (element != null)
+                    {
+                        return element;
+                    }
+                }
+                else if (child is IElement element)
                 {
                     if (element.Id.Is(id))
                     {
@@ -112,13 +127,24 @@
         /// <param name="children">The list to investigate.</param>
         /// <param name="name">The name attribute's value.</param>
         /// <param name="result">The result collection.</param>
-        public static void GetElementsByName(this INodeList children, String name, List<IElement> result)
+        public static void GetElementsByName(this INodeList children, String name, List<IElement> result) => GetElementsByName<INodeList>(children, name, result);
+
+        public static void GetElementsByName<T>(this T children, String name, List<IElement> result) where T : INodeList
         {
             for (var i = 0; i < children.Length; i++)
             {
-                var element = children[i] as IElement;
+                var child = children[i];
 
-                if (element != null)
+                if (child is Element ele)
+                {
+                    if (ele.GetAttribute(null, AttributeNames.Name).Is(name))
+                    {
+                        result.Add(ele);
+                    }
+
+                    ele.ChildNodes.GetElementsByName(name, result);
+                }
+                else if (child is IElement element)
                 {
                     if (element.GetAttribute(null, AttributeNames.Name).Is(name))
                     {
@@ -141,18 +167,18 @@
         {
             switch (node.NodeType)
             {
-                case NodeType.Attribute:             return (filter & FilterSettings.Attribute) == FilterSettings.Attribute;
-                case NodeType.CharacterData:         return (filter & FilterSettings.CharacterData) == FilterSettings.CharacterData;
-                case NodeType.Comment:               return (filter & FilterSettings.Comment) == FilterSettings.Comment;
-                case NodeType.Document:              return (filter & FilterSettings.Document) == FilterSettings.Document;
-                case NodeType.DocumentFragment:      return (filter & FilterSettings.DocumentFragment) == FilterSettings.DocumentFragment;
-                case NodeType.DocumentType:          return (filter & FilterSettings.DocumentType) == FilterSettings.DocumentType;
-                case NodeType.Element:               return (filter & FilterSettings.Element) == FilterSettings.Element;
-                case NodeType.Entity:                return (filter & FilterSettings.Entity) == FilterSettings.Entity;
-                case NodeType.EntityReference:       return (filter & FilterSettings.EntityReference) == FilterSettings.EntityReference;
+                case NodeType.Attribute: return (filter & FilterSettings.Attribute) == FilterSettings.Attribute;
+                case NodeType.CharacterData: return (filter & FilterSettings.CharacterData) == FilterSettings.CharacterData;
+                case NodeType.Comment: return (filter & FilterSettings.Comment) == FilterSettings.Comment;
+                case NodeType.Document: return (filter & FilterSettings.Document) == FilterSettings.Document;
+                case NodeType.DocumentFragment: return (filter & FilterSettings.DocumentFragment) == FilterSettings.DocumentFragment;
+                case NodeType.DocumentType: return (filter & FilterSettings.DocumentType) == FilterSettings.DocumentType;
+                case NodeType.Element: return (filter & FilterSettings.Element) == FilterSettings.Element;
+                case NodeType.Entity: return (filter & FilterSettings.Entity) == FilterSettings.Entity;
+                case NodeType.EntityReference: return (filter & FilterSettings.EntityReference) == FilterSettings.EntityReference;
                 case NodeType.ProcessingInstruction: return (filter & FilterSettings.ProcessingInstruction) == FilterSettings.ProcessingInstruction;
-                case NodeType.Notation:              return (filter & FilterSettings.Notation) == FilterSettings.Notation;
-                case NodeType.Text:                  return (filter & FilterSettings.Text) == FilterSettings.Text;
+                case NodeType.Notation: return (filter & FilterSettings.Notation) == FilterSettings.Notation;
+                case NodeType.Text: return (filter & FilterSettings.Text) == FilterSettings.Text;
             }
 
             return filter == FilterSettings.All;
@@ -219,7 +245,7 @@
                     yield return child;
                 }
 
-                foreach (var element in parent.ChildNodes[i].GetAllElements<T>(predicate))
+                foreach (var element in child.GetAllElements<T>(predicate))
                 {
                     yield return element;
                 }

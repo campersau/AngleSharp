@@ -10,8 +10,8 @@
  - Switch back to devel branch
    **************************************** */
 
-#addin "Cake.FileHelpers"
-#addin "Octokit"
+#addin nuget:?package=Cake.FileHelpers&version=3.1.0
+#addin nuget:?package=Octokit&version=0.31.0
 using Octokit;
 
 var target = Argument("target", "Default");

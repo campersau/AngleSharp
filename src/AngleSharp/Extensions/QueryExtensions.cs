@@ -1,4 +1,4 @@
-﻿namespace AngleSharp.Extensions
+namespace AngleSharp.Extensions
 {
     using AngleSharp.Dom;
     using AngleSharp.Dom.Collections;
@@ -21,11 +21,13 @@
         /// <param name="elements">The elements to take as source.</param>
         /// <param name="selectors">A string containing one or more CSS selectors separated by commas.</param>
         /// <returns>An element object.</returns>
-        public static IElement QuerySelector(this INodeList elements, String selectors)
+        public static IElement QuerySelector(this INodeList elements, String selectors) => QuerySelector<INodeList>(elements, selectors);
+
+        public static IElement QuerySelector<T>(this T nodes, String selectorText) where T : INodeList
         {
-            var sg = CssParser.Default.ParseSelector(selectors);
+            var sg = CssParser.Default.ParseSelector(selectorText);
             Validate(sg);
-            return elements.QuerySelector(sg);
+            return nodes.QuerySelector(sg);
         }
 
         /// <summary>
@@ -35,12 +37,14 @@
         /// <param name="elements">The elements to take as source.</param>
         /// <param name="selectors">A string containing one or more CSS selectors separated by commas.</param>
         /// <returns>A HTMLCollection with all elements that match the selection.</returns>
-        public static HtmlCollection<IElement> QuerySelectorAll(this INodeList elements, String selectors)
+        public static IHtmlCollection<IElement> QuerySelectorAll(this INodeList elements, String selectors) => QuerySelectorAll<INodeList>(elements, selectors);
+
+        public static IHtmlCollection<IElement> QuerySelectorAll<T>(this T nodes, String selectorText) where T : INodeList
         {
-            var sg = CssParser.Default.ParseSelector(selectors);
+            var sg = CssParser.Default.ParseSelector(selectorText);
             Validate(sg);
             var result = new List<IElement>();
-            elements.QuerySelectorAll(sg, result);
+            nodes.QuerySelectorAll(sg, result);
             return new HtmlCollection<IElement>(result);
         }
 
@@ -50,7 +54,9 @@
         /// <param name="elements">The elements to take as source.</param>
         /// <param name="classNames">A string representing the list of class names to match; class names are separated by whitespace.</param>
         /// <returns>A collection of HTML elements.</returns>
-        public static HtmlCollection<IElement> GetElementsByClassName(this INodeList elements, String classNames)
+        public static IHtmlCollection<IElement> GetElementsByClassName(this INodeList elements, String classNames) => GetElementsByClassName<INodeList>(elements, classNames);
+
+        public static IHtmlCollection<IElement> GetElementsByClassName<T>(this T elements, String classNames) where T : INodeList
         {
             var result = new List<IElement>();
             var names = classNames.SplitSpaces();
@@ -69,7 +75,9 @@
         /// <param name="elements">The elements to take as source.</param>
         /// <param name="tagName">A string representing the name of the elements. The special string "*" represents all elements.</param>
         /// <returns>A NodeList of found elements in the order they appear in the tree.</returns>
-        public static HtmlCollection<IElement> GetElementsByTagName(this INodeList elements, String tagName)
+        public static IHtmlCollection<IElement> GetElementsByTagName(this INodeList elements, String tagName) => GetElementsByTagName<INodeList>(elements, tagName);
+
+        public static IHtmlCollection<IElement> GetElementsByTagName<T>(this T elements, String tagName) where T : INodeList
         {
             var result = new List<IElement>();
             elements.GetElementsByTagName(tagName.Is(Keywords.Asterisk) ? null : tagName, result);
@@ -84,7 +92,9 @@
         /// <param name="namespaceUri">The namespace URI of elements to look for.</param>
         /// <param name="localName">Either the local name of elements to look for or the special value "*", which matches all elements.</param>
         /// <returns>A NodeList of found elements in the order they appear in the tree.</returns>
-        public static HtmlCollection<IElement> GetElementsByTagName(this INodeList elements, String namespaceUri, String localName)
+        public static IHtmlCollection<IElement> GetElementsByTagName(this INodeList elements, String namespaceUri, String localName) => GetElementsByTagName<INodeList>(elements, namespaceUri, localName);
+
+        public static IHtmlCollection<IElement> GetElementsByTagName<T>(this T elements, String namespaceUri, String localName) where T : INodeList
         {
             var result = new List<IElement>();
             elements.GetElementsByTagName(namespaceUri, localName.Is(Keywords.Asterisk) ? null : localName, result);
@@ -102,8 +112,9 @@
         /// <param name="elements">The elements to take as source.</param>
         /// <param name="selectors">A selector object.</param>
         /// <returns>An element object.</returns>
-        public static T QuerySelector<T>(this INodeList elements, ISelector selectors)
-            where T : class, IElement
+        public static T QuerySelector<T>(this INodeList elements, ISelector selectors) where T : class, IElement => QuerySelector<INodeList, T>(elements, selectors);
+
+        public static T QuerySelector<TNodeList, T>(this TNodeList elements, ISelector selectors) where T : class where TNodeList : INodeList
         {
             return elements.QuerySelector(selectors) as T;
         }
@@ -115,13 +126,13 @@
         /// <param name="elements">The elements to take as source.</param>
         /// <param name="selector">A selector object.</param>
         /// <returns>An element object.</returns>
-        public static IElement QuerySelector(this INodeList elements, ISelector selector)
+        public static IElement QuerySelector(this INodeList elements, ISelector selector) => QuerySelector<INodeList>(elements, selector);
+
+        public static IElement QuerySelector<T>(this T elements, ISelector selector) where T : INodeList
         {
             for (var i = 0; i < elements.Length; i++)
             {
-                var element = elements[i] as IElement;
-
-                if (element != null)
+                if (elements[i] is IElement element)
                 {
                     if (selector.Match(element))
                     {
@@ -150,7 +161,9 @@
         /// <param name="elements">The elements to take as source.</param>
         /// <param name="selector">A selector object.</param>
         /// <returns>A HTMLCollection with all elements that match the selection.</returns>
-        public static HtmlCollection<IElement> QuerySelectorAll(this INodeList elements, ISelector selector)
+        public static IHtmlCollection<IElement> QuerySelectorAll(this INodeList elements, ISelector selector) => QuerySelectorAll<INodeList>(elements, selector);
+
+        public static IHtmlCollection<IElement> QuerySelectorAll<T>(this T elements, ISelector selector) where T : INodeList
         {
             var result = new List<IElement>();
             elements.QuerySelectorAll(selector, result);
@@ -164,7 +177,9 @@
         /// <param name="elements">The elements to take as source.</param>
         /// <param name="selector">A selector object.</param>
         /// <param name="result">A reference to the list where to store the results.</param>
-        public static void QuerySelectorAll(this INodeList elements, ISelector selector, List<IElement> result)
+        public static void QuerySelectorAll(this INodeList elements, ISelector selector, List<IElement> result) => QuerySelectorAll<INodeList>(elements, selector, result);
+
+        public static void QuerySelectorAll<T>(this T elements, ISelector selector, List<IElement> result) where T : INodeList
         {
             for (var i = 0; i < elements.Length; i++)
             {
@@ -188,7 +203,9 @@
         /// <param name="list">The list that is considered.</param>
         /// <param name="tokens">The tokens to consider.</param>
         /// <returns>True if the string contained all tokens, otherwise false.</returns>
-        public static Boolean Contains(this ITokenList list, String[] tokens)
+        public static Boolean Contains(this ITokenList list, String[] tokens) => Contains<ITokenList>(list, tokens);
+
+        public static Boolean Contains<T>(this T list, String[] tokens) where T : class, ITokenList
         {
             for (var i = 0; i < tokens.Length; i++)
             {
@@ -207,7 +224,7 @@
         /// <param name="elements">The elements to take as source.</param>
         /// <param name="classNames">An array with class names to consider.</param>
         /// <param name="result">A reference to the list where to store the results.</param>
-        public static void GetElementsByClassName(this INodeList elements, String[] classNames, List<IElement> result)
+        private static void GetElementsByClassName<T>(this T elements, String[] classNames, List<IElement> result) where T : INodeList
         {
             for (var i = 0; i < elements.Length; i++)
             {
@@ -234,7 +251,7 @@
         /// <param name="elements">The elements to take as source.</param>
         /// <param name="tagName">A string representing the name of the elements. The special string "*" represents all elements.</param>
         /// <param name="result">A reference to the list where to store the results.</param>
-        public static void GetElementsByTagName(this INodeList elements, String tagName, List<IElement> result)
+        private static void GetElementsByTagName<T>(this T elements, String tagName, List<IElement> result) where T : INodeList
         {
             for (var i = 0; i < elements.Length; i++)
             {
@@ -263,7 +280,7 @@
         /// <param name="namespaceUri">The namespace URI of elements to look for.</param>
         /// <param name="localName">Either the local name of elements to look for or the special value "*", which matches all elements.</param>
         /// <param name="result">A reference to the list where to store the results.</param>
-        public static void GetElementsByTagName(this INodeList elements, String namespaceUri, String localName, List<IElement> result)
+        private static void GetElementsByTagName<T>(this T elements, String namespaceUri, String localName, List<IElement> result) where T : INodeList
         {
             for (var i = 0; i < elements.Length; i++)
             {
